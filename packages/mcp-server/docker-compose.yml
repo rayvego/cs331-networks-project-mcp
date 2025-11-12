@@ -1,0 +1,25 @@
+services:
+  network-diagnostics:
+    build: .
+    container_name: network-diagnostics-mcp
+    init: true
+    
+    # TRUE host networking - works perfectly on Linux
+    network_mode: host
+    
+    # Minimal capabilities (no privileged needed)
+    cap_add:
+      - NET_RAW          # For ICMP ping
+      - NET_ADMIN        # For traceroute
+    
+    volumes:
+      # Optional: mount source for development
+      - .:/app
+    
+    stdin_open: true  # Required for stdio MCP transport
+    tty: true
+    
+    environment:
+      - SSE_PORT=3001
+    
+    restart: unless-stopped

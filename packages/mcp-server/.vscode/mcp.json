@@ -1,0 +1,16 @@
+{
+	"servers": {
+		"network-diagnostics": {
+			"type": "stdio",
+			"command": "docker-compose",
+			"args": [
+				"-f",
+				"/Users/rayvego/code/courage/networks-project-mcp/packages/mcp-server/docker-compose.yml",
+				"run",
+				"--rm",
+				"network-diagnostics"
+			]
+		}
+	},
+	"inputs": []
+}

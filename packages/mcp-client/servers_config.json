@@ -1,0 +1,14 @@
+{
+	"mcpServers": {
+		"network-diagnostics": {
+			"command": "docker-compose",
+			"args": [
+				"-f",
+				"/home/devanshlodha/cs331-networks-project-mcp/packages/mcp-server/docker-compose.yml",
+				"run",
+				"--rm",
+				"network-diagnostics"
+			]
+		}
+	}
+}

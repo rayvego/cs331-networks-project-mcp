@@ -1,0 +1,12 @@
+{
+	"servers": {
+		"network-diagnostics": {
+			"type": "stdio",
+			"command": "bun",
+			"args": [
+				"/Users/rayvego/code/courage/networks-project-mcp/packages/mcp-server/dist/index.js"
+			]
+		}
+	},
+	"inputs": []
+}
