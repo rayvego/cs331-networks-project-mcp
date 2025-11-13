@@ -28,6 +28,7 @@ export class ChatSession {
 	private servers: McpServer[];
 	private llmClient: LLMClient;
 	private sseManager: SSEManager;
+	private availableTools: ToolInfo[] = [];
 
 	/**
 	 * Creates a new chat session orchestrator.
@@ -265,7 +266,7 @@ ${resourceText}`;
 				let continueProcessing = true;
 				while (continueProcessing) {
 					// Get LLM response
-					const llmResponse = await this.llmClient.getResponse(messages);
+					const llmResponse = await this.llmClient.getResponse(messages, this.availableTools);
 					terminalUI.displayAssistantResponse(llmResponse);
 
 					// Process response (execute tool if needed)
@@ -469,13 +470,13 @@ ${resourceText}`;
 			}
 
 			// Collect all tools
-			const allTools: ToolInfo[] = [];
+			this.availableTools = [];
 			for (const server of this.servers) {
 				const tools = await server.listTools();
-				allTools.push(...tools);
+				this.availableTools.push(...tools);
 			}
 
-			const toolsDescription = allTools
+			const toolsDescription = this.availableTools
 				.map((tool) => tool.formatForLLM())
 				.join("\n");
 
@@ -587,7 +588,7 @@ Please use only the tools that are explicitly defined above.`;
 					messages.push({ role: "user", content: userInput });
 
 					// Get LLM response
-					const llmResponse = await this.llmClient.getResponse(messages);
+					const llmResponse = await this.llmClient.getResponse(messages, this.availableTools);
 					terminalUI.displayAssistantResponse(llmResponse);
 
 					// Process response (execute tool if needed)
@@ -602,7 +603,7 @@ Please use only the tools that are explicitly defined above.`;
 						this.displayToolOutput(result);
 
 						// Get final response from LLM
-						const finalResponse = await this.llmClient.getResponse(messages);
+						const finalResponse = await this.llmClient.getResponse(messages, this.availableTools);
 						terminalUI.displayFinalResponse(finalResponse);
 						messages.push({ role: "assistant", content: finalResponse });
 					} else {

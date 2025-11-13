@@ -12,9 +12,13 @@ interface ServersConfig {
 	mcpServers: Record<string, ServerConfig>;
 }
 
+export type LLMProvider = "gemini" | "groq";
+
 export class Configuration {
-	private apiKeys: string[] = [];
-	private currentKeyIndex: number = 0;
+	private geminiApiKeys: string[] = [];
+	private groqApiKeys: string[] = [];
+	private currentGeminiKeyIndex: number = 0;
+	private currentGroqKeyIndex: number = 0;
 
 	/**
 	 * Initializes the configuration manager.
@@ -40,19 +44,36 @@ export class Configuration {
 	}
 
 	/**
-	 * Discovers and loads Gemini API keys from environment variables.
+	 * Discovers and loads API keys from environment variables for both providers.
 	 *
-	 * Searches for numbered API keys (GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.)
-	 * and falls back to the original GEMINI_API_KEY if no numbered keys are found.
-	 * This enables API key rotation for load balancing and rate limit management.
+	 * Searches for numbered API keys for both Gemini (GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.)
+	 * and Groq (GROQ_API_KEY_1, GROQ_API_KEY_2, etc.) and falls back to the original
+	 * API keys if no numbered keys are found. This enables API key rotation for
+	 * load balancing and rate limit management.
 	 *
 	 * @private
 	 */
 	private loadApiKeys(): void {
-		// Load all GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+		// Load Gemini API keys
+		this.loadProviderApiKeys("gemini", "GEMINI_API_KEY", this.geminiApiKeys);
+
+		// Load Groq API keys
+		this.loadProviderApiKeys("groq", "GROQ_API_KEY", this.groqApiKeys);
+	}
+
+	/**
+	 * Loads API keys for a specific provider.
+	 *
+	 * @param provider - The provider name for logging
+	 * @param envPrefix - The environment variable prefix
+	 * @param keyArray - The array to store the keys
+	 * @private
+	 */
+	private loadProviderApiKeys(provider: string, envPrefix: string, keyArray: string[]): void {
+		// Load all numbered keys (e.g., GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.)
 		let keyIndex = 1;
 		while (true) {
-			const keyName = `GEMINI_API_KEY${keyIndex === 1 ? "" : `_${keyIndex}`}`;
+			const keyName = `${envPrefix}${keyIndex === 1 ? "" : `_${keyIndex}`}`;
 			const keyValue = process.env[keyName];
 
 			if (!keyValue) {
@@ -60,22 +81,22 @@ export class Configuration {
 				break;
 			}
 
-			this.apiKeys.push(keyValue);
+			keyArray.push(keyValue);
 			keyIndex++;
 		}
 
-		// If no numbered keys found, fall back to the original GEMINI_API_KEY
-		if (this.apiKeys.length === 0) {
-			const fallbackKey = process.env.GEMINI_API_KEY;
+		// If no numbered keys found, fall back to the original API key
+		if (keyArray.length === 0) {
+			const fallbackKey = process.env[envPrefix];
 			if (fallbackKey) {
-				this.apiKeys.push(fallbackKey);
+				keyArray.push(fallbackKey);
 			}
 		}
 
-		if (this.apiKeys.length === 0) {
-			console.warn("Warning: No GEMINI_API_KEY environment variables found");
+		if (keyArray.length === 0) {
+			console.warn(`Warning: No ${envPrefix} environment variables found`);
 		} else {
-			console.log(`✓ Loaded ${this.apiKeys.length} API key(s) for rotation`);
+			console.log(`✓ Loaded ${keyArray.length} ${provider} API key(s) for rotation`);
 		}
 	}
 
@@ -101,40 +122,62 @@ export class Configuration {
 	}
 
 	/**
-	 * Gets the next API key in rotation for load balancing.
+	 * Gets the current LLM provider from environment variable.
+	 *
+	 * Defaults to "gemini" if not specified. Supports "gemini" and "groq".
+	 *
+	 * @returns The configured LLM provider
+	 */
+	get llmProvider(): LLMProvider {
+		const provider = process.env.LLM_PROVIDER?.toLowerCase();
+		return provider === "groq" ? "groq" : "gemini";
+	}
+
+	/**
+	 * Gets the next API key in rotation for the current provider.
 	 *
 	 * Returns API keys in round-robin fashion to distribute load across
 	 * multiple keys and avoid rate limiting. Automatically rotates to the
 	 * next available key on each access.
 	 *
 	 * @returns The next API key in the rotation
-	 * @throws Error if no API keys are configured
+	 * @throws Error if no API keys are configured for the current provider
 	 */
 	get llmApiKey(): string {
-		if (this.apiKeys.length === 0) {
-			throw new Error("No GEMINI_API_KEY environment variables found");
+		const provider = this.llmProvider;
+		const keyArray = provider === "groq" ? this.groqApiKeys : this.geminiApiKeys;
+		const currentIndex = provider === "groq" ? this.currentGroqKeyIndex : this.currentGeminiKeyIndex;
+
+		if (keyArray.length === 0) {
+			throw new Error(`No ${provider.toUpperCase()}_API_KEY environment variables found`);
 		}
 
 		// Get the next key in rotation
-		const key = this.apiKeys[this.currentKeyIndex];
+		const key = keyArray[currentIndex];
 
 		if (!key) {
 			throw new Error("Invalid API key state - key is undefined");
 		}
 
 		// Move to the next key for future requests
-		this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
+		if (provider === "groq") {
+			this.currentGroqKeyIndex = (this.currentGroqKeyIndex + 1) % keyArray.length;
+		} else {
+			this.currentGeminiKeyIndex = (this.currentGeminiKeyIndex + 1) % keyArray.length;
+		}
 
 		return key;
 	}
 
 	/**
-	 * Gets the total number of configured API keys.
+	 * Gets the total number of configured API keys for the current provider.
 	 *
 	 * @returns The number of API keys available for rotation
 	 */
 	get totalKeys(): number {
-		return this.apiKeys.length;
+		const provider = this.llmProvider;
+		const keyArray = provider === "groq" ? this.groqApiKeys : this.geminiApiKeys;
+		return keyArray.length;
 	}
 }
 

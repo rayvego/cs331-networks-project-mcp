@@ -4,7 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "bun run src/index.ts",
-		"start": "bun run src/index.ts"
+		"start": "bun run src/index.ts",
+		"build": "bun build src/index.ts --target node --outdir dist"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.19.1",
